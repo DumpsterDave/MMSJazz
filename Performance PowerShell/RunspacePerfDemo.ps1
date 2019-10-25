@@ -124,7 +124,8 @@ $WorkflowTime = Measure-Command {
     Workflow Test-Workflow{
 
         $ints = 0..29
-        ForEach -Parallel -ThrottleLimit 5 ($i in $ints) {  #This is a thread
+        ##  NOTE:  -ThrottleLimit was added in PowerShell v4.0  
+        ForEach -Parallel ($i in $ints) {  #This is a thread
             InlineScript {  #This is a process
                 Start-Sleep -Seconds 1
                 Write-Host "Workflow_$($using:i) with Process ID $($pid) has completed." -ForegroundColor Blue  #Will not show color because the workflow is only returning the text to the 

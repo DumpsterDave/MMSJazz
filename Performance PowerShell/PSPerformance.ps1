@@ -1,10 +1,19 @@
-﻿#region Parameters and Global Variables
+﻿#  ~/Item1.txt
+#  ~/Item3.txt
+#
+#
+#
+#
+
+
+#region Parameters and Global Variables
 [CmdletBinding()]
 Param(
     [Parameter(Mandatory=$false)]
     [switch]$OutToFile
 )
-$OutFileName = [string]::Format("C:\Temp\PSPerformance_{0}_{1}.{2}.txt", (Get-Date -Format "yyyyddMMHHmmss"), $host.Version.Major, $host.Version.Minor)
+$BaseDir = (Split-Path -Parent $PSCommandPath)
+$OutFileName = [string]::Format("$BaseDir\PSPerformance_{0}_{1}.{2}.txt", (Get-Date -Format "yyyyddMMHHmmss"), $host.Version.Major, $host.Version.Minor)
 if ($OutToFile) {
     Out-File -FilePath $OutFileName -Encoding utf8 -Force -InputObject ([string]::Format("Running under PSVersion: {0}.{1}", $host.Version.Major, $host.Version.Minor))
 }
@@ -45,15 +54,27 @@ Function Get-Winner {
     Write-Host $Border -ForegroundColor White
 
     if ($AValue -lt $BValue) {
-        $Winner = $AName
-        $AColor = [ConsoleColor]::Green
-        $BColor = [ConsoleColor]::Red
         $Faster = $BValue / $AValue
+        if ($Faster -lt 1.05) {
+            $Winner = "Tie"
+            $AColor = [ConsoleColor]::White
+            $BColor = [ConsoleColor]::White
+        } else {
+            $Winner = $AName
+            $AColor = [ConsoleColor]::Green
+            $BColor = [ConsoleColor]::Red
+        }
     } elseif ($AValue -gt $BValue) {
-        $Winner = $BName
-        $AColor = [ConsoleColor]::Red
-        $BColor = [ConsoleColor]::Green
         $Faster = $AValue / $BValue
+        if ($Faster -lt 1.05) {
+            $Winner = "Tie"
+            $AColor = [ConsoleColor]::White
+            $BColor = [ConsoleColor]::White
+        } else {
+            $Winner = $BName
+            $AColor = [ConsoleColor]::Red
+            $BColor = [ConsoleColor]::Green
+        }
     } else {
         $Winner = "Tie"
         $AColor = [ConsoleColor]::White
@@ -87,9 +108,12 @@ Function Get-Winner {
 }
 #endregion
 
+
+
 #region -Filter vs Where-Object
 $f = Measure-Command {
     $objs = Get-ChildItem -Path C:\Windows\System32 -Filter '*.exe'
+    $objs.Count
 }
 #Write-Host $objs.Count -ForegroundColor Magenta
 $wo = Measure-Command {
@@ -143,7 +167,7 @@ $fe = Measure-Command {
 
 $fep = Measure-Command {
     $z = 1..10000
-    $z | foreach {
+    $z | ForEach-Object {
         $_ = Get-Random
     }
 }
@@ -164,7 +188,7 @@ $a = Measure-Command {
 $l = Measure-Command {
     $list = [System.Collections.ArrayList]::new()
     for ($i = 0; $i -lt 10000; $i++) {
-        $list.Add($i)
+        [void]$list.Add($i)
     }
 }
 
@@ -193,20 +217,19 @@ Get-Winner "RegEx" $m.TotalMilliseconds '.NET RegEx' $nr.TotalMilliseconds
 #endregion
 
 #region Pipes vs Long Form
+Out-File "$BaseDir\Item1.txt" -Encoding utf8 -InputObject ""
+Out-File "$BaseDir\Item2.txt" -Encoding utf8 -InputObject ""
+
 #Pipes
 $p = Measure-Command {
-    for ($i = 0; $i -lt 1000; $i++) {
-        Get-Item C:\Temp\Item1.txt | Get-Content -Raw | Out-File C:\Temp\Item1_2.txt -Force
-    }
+    Get-ChildItem -Path C:\Windows\System32 -Filter '*.exe' | Get-FileHash -Algorithm SHA1 | Out-File "$BaseDir\Item1.txt" -Append
 }
 
 #Long Format
 $lf = Measure-Command {
-    for ($i = 0; $i -lt 1000; $i++) {
-        $ci = Get-Item C:\Temp\Item1.txt
-        $c = Get-Content $ci -Raw
-        Out-File -InputObject $c -FilePath C:\Temp\Item2.txt -Force
-    }
+    $Kids = Get-ChildItem -Path C:\Windows\System32 -Filter '*.exe'
+    $Hash = Get-FileHash $Kids.FullName -Algorithm SHA1
+    Out-File "$BaseDir\Item2.txt" -Append -InputObject $Hash.Hash
 }
 
 Get-Winner "Pipes" $p.TotalMilliseconds "Long Format" $lf.TotalMilliseconds
@@ -254,16 +277,91 @@ Get-Winner 'String.Format' $sf.TotalMilliseconds 'String -f' $sdf.TotalMilliseco
 #Get-Content
 $gc = Measure-Command {
     for ($i = 0; $i -lt 100; $i++) {
-        $GcTrash = Get-Content C:\Temp\Item3.txt -Encoding UTF8
+        $GcTrash = Get-Content "$BaseDir\Item3.txt" -Encoding UTF8
     }
 }
 
+#Stream Reader
 $st = Measure-Command {
     for ($i = 0; $i -lt 100; $i++) {
-        $StreamReader = [System.IO.StreamReader]::new('C:\Temp\Item3.txt', [System.Text.Encoding]::UTF8)
+        $StreamReader = [System.IO.StreamReader]::new("$BaseDir\Item3.txt", [System.Text.Encoding]::UTF8)
         $StTrash = $StreamReader.ReadToEndAsync()
     }
 }
 
 Get-Winner 'Get-Content' $gc.TotalMilliseconds '.NET Streams' $st.TotalMilliseconds
+#endregion
+
+#region Write-Host vs Write-Output
+#Write-Host
+$iterations = 1000
+$wh = Measure-Command {
+    for ($i = 0; $i -lt $iterations; $i++) {
+        Write-Host "The quick brown fox jumps over the lazy dog"
+    }
+}
+
+#Write-Output
+$wo = Measure-Command {
+    for ($i = 0; $i -lt $iterations; $i++) {
+        Write-Output "The quick brown fox jumps over the lazy dog"
+    }
+}
+
+Get-Winner 'Write-Host' $wh.Milliseconds 'Write-Output' $wo.Milliseconds
+#endregion
+
+#region Write-Output vs [Console]::WriteLine()
+$iterations = 1000
+$wo = Measure-Command {
+    for ($i = 0; $i -lt $iterations; $i++) {
+        Write-Output "The quick brown fox jumps over the lazy dog"
+    }
+}
+
+$cwl = Measure-Command {
+    for ($i = 0; $i -lt $iterations; $i++) {
+        [System.Console]::WriteLine("The quick brown fox jumps over the lazy dog")
+    }
+}
+Get-Winner '[Console]::WriteLine' $cwl.Milliseconds 'Write-Output' $wo.Milliseconds
+#endregion
+
+
+#region Write-Host vs [Console]::WriteLine() with Color
+$iterations = 1000
+$wh = Measure-Command {
+    for ($i = 0; $i -lt $iterations; $i++) {
+        Write-Host "The quick brown fox jumps over the lazy dog"
+    }
+}
+
+$cwl = Measure-Command {
+    for ($i = 0; $i -lt $iterations; $i++) {
+        [System.Console]::WriteLine("The quick brown fox jumps over the lazy dog")
+    }
+}
+Get-Winner '[Console]::WriteLine' $cwl.Milliseconds 'Write-Host' $wh.Milliseconds
+#endregion
+
+#region Function vs Code
+$iterations = 1000
+function Get-RandomSquare {
+    $r = Get-Random
+    return ($r * $r)
+}
+
+$f = Measure-Command {
+    for ($i = 0; $i -lt $iterations; $i++) {
+        $x = Get-RandomSquare
+    }
+}
+
+$c = Measure-Command {
+    for ($i = 0; $i -lt $iterations; $i++) {
+        $r = Get-Random
+        $y = ($r * $r)
+    }
+}
+Get-Winner 'Function' $f.Milliseconds 'Commands' $c.Milliseconds
 #endregion
