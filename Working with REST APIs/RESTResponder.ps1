@@ -33,7 +33,8 @@ function Post-LogAnalyticsData($WorkspaceID, $Key, $Body, $LogType) {
         "time-generated-field" = $TimeStampField
     }
 
-    $response = Invoke-RestMethod -Uri $URI -Method $Method -ContentType $CType -Headers $headers -Body $Body -UseBasicParsing
+    #$response = Invoke-RestMethod -Uri $URI -Method $Method -ContentType $CType -Headers $headers -Body $Body
+    $response = Invoke-WebRequest -Uri $URI -Method $Method -ContentType $CType -Headers $headers -Body $Body -UseBasicParsing
     return $response.StatusCode
 }
 #endregion
@@ -83,13 +84,22 @@ while (($Server.IsListening) -and ((Get-Date) -le $StopAt)) {
         $Data = $Body.ReadToEnd()
         $Obj = ConvertFrom-Json $Data
 
+        $NewObj = "" | Select Name,Message,Number,HostName,HostAddress
+        $NewObj.Name = $Obj.Name
+        $NewObj.Message = $Obj.Message
+        $NewObj.Number = $Obj.Number
+        $NewObj.HostName = $Context.Request.UserHostName
+        $NewObj.HostAddress = $Context.Request.UserHostAddress
+
+        $ToSend = ConvertTo-Json $NewObj
+
         #Write the body parts out
         Write-Host -NoNewline -ForegroundColor Magenta "$($Obj.Number)`t"
         Write-Host -NoNewline -ForegroundColor Yellow "$($Obj.Name)`t"
         Write-Host -ForegroundColor Cyan "$($Obj.Message)"
 
         #Respond to the client so that they can close the connection
-        $Result = Post-LogAnalyticsData -WorkspaceID $WorkspaceID -Key $Key -Body $Data -LogType $LogType
+        $Result = Post-LogAnalyticsData -WorkspaceID $WorkspaceID -Key $Key -Body $ToSend -LogType $LogType
         $buffer = [System.Text.Encoding]::UTF8.GetBytes($Result)
         $Context.Response.ContentLength64 = $buffer.Length
         $Context.Response.OutputStream.Write($buffer, 0, $buffer.Length)
