@@ -1,3 +1,44 @@
+#region Functions
+$WorkspaceID = ''
+$Key = ''
+$LogType = 'MMSJazzRESTDemo'
+$TimeStampField = 'DateValue'
+
+function Build-Signature ($WorkspaceId, $Key, $Date, $ContentLength, $Method, $ContentType, $Resource){
+    $Headers = "x-ms-date:" + $Date
+    $StringToHash = "$($Method)`n$($ContentLength)`n$($ContentType)`n$($Headers)`n$($Resource)"
+    $BytesToHash = [Text.Encoding]::UTF8.GetBytes($StringToHash)
+    $KeyBytes = [Convert]::FromBase64String($Key)
+    $SHA256 = [System.Security.Cryptography.HMACSHA256]::new()
+    $SHA256.Key = $KeyBytes
+    $CalculatedHash = $SHA256.ComputeHash($BytesToHash)
+    $EncodedHash = [Convert]::ToBase64String($CalculatedHash)
+    $Authorization = [string]::Format("SharedKey {0}:{1}", $WorkspaceId, $EncodedHash)
+    return $Authorization
+}
+
+function Post-LogAnalyticsData($WorkspaceID, $Key, $Body, $LogType) {
+    $Method = 'POST'
+    $CType = 'application/json'
+    $resource = '/api/logs'
+    $rfc1123date = [DateTime]::UtcNow.ToString('r')
+    $CLength = $Body.Length
+    $Signature = Build-Signature -WorkspaceId $WorkspaceID -Key $Key -Date $rfc1123date -ContentLength $CLength -Method $Method -ContentType $CType -Resource $resource
+    $URI = "https://$($WorkspaceID).ods.opinsights.azure.com$($resource)?api-version=2016-04-01"
+
+    $headers = @{
+        "Authorization" = $Signature;
+        "Log-Type" = $LogType;
+        "x-ms-date" = $rfc1123date;
+        "time-generated-field" = $TimeStampField
+    }
+
+    #$response = Invoke-RestMethod -Uri $URI -Method $Method -ContentType $CType -Headers $headers -Body $Body
+    $response = Invoke-WebRequest -Uri $URI -Method $Method -ContentType $CType -Headers $headers -Body $Body -UseBasicParsing
+    return $response.StatusCode
+}
+#endregion
+
 #Setup the server
 $Path = Split-Path $MyInvocation.MyCommand.Path  -Parent
 Set-Location $Path
@@ -43,13 +84,23 @@ while (($Server.IsListening) -and ((Get-Date) -le $StopAt)) {
         $Data = $Body.ReadToEnd()
         $Obj = ConvertFrom-Json $Data
 
+        $NewObj = "" | Select Name,Message,Number,HostName,HostAddress
+        $NewObj.Name = $Obj.Name
+        $NewObj.Message = $Obj.Message
+        $NewObj.Number = $Obj.Number
+        $NewObj.HostName = $Context.Request.UserHostName
+        $NewObj.HostAddress = $Context.Request.UserHostAddress
+
+        $ToSend = ConvertTo-Json $NewObj
+
         #Write the body parts out
         Write-Host -NoNewline -ForegroundColor Magenta "$($Obj.Number)`t"
         Write-Host -NoNewline -ForegroundColor Yellow "$($Obj.Name)`t"
         Write-Host -ForegroundColor Cyan "$($Obj.Message)"
 
         #Respond to the client so that they can close the connection
-        $buffer = [System.Text.Encoding]::UTF8.GetBytes("OK")
+        $Result = Post-LogAnalyticsData -WorkspaceID $WorkspaceID -Key $Key -Body $ToSend -LogType $LogType
+        $buffer = [System.Text.Encoding]::UTF8.GetBytes($Result)
         $Context.Response.ContentLength64 = $buffer.Length
         $Context.Response.OutputStream.Write($buffer, 0, $buffer.Length)
         $Context.Response.OutputStream.Close()        

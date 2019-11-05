@@ -169,7 +169,7 @@ $RunspaceTime = Measure-Command {
 
         $Handle = $PowerShell.BeginInvoke()
         
-        $temp = '' | Select PowerShell,Handle
+        $temp = '' | Select-Object PowerShell,Handle
         $temp.PowerShell = $PowerShell
         $temp.handle = $Handle
         [void]$Spaces.Add($Temp)
@@ -186,7 +186,7 @@ $RunspaceTime = Measure-Command {
 
     $Spaces.clear()
 
-    ($return | Group Thread).Count
+    ($return | Group-Object Thread).Count
 }
 #endregion
 
