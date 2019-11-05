@@ -89,7 +89,7 @@ while (($Server.IsListening) -and ((Get-Date) -lt $StopAt)) {
                                 } else {
                                     $Free = [string]::Format("{0:n2} MB", (($vol.SizeRemaining) / 1048576))
                                 }
-                                $PFreeDecimal = (($vol.SizeRemaining) / ($vol.Size))
+                                #$PFreeDecimal = (($vol.SizeRemaining) / ($vol.Size))
                                 $PUsedDecimal = 1 - (($vol.SizeRemaining) / ($vol.Size))
                                 $PUsedString = [string]::Format("{0:p2}", $PUsedDecimal)
                                 $PUsedWidth = [int]($PUsedDecimal * 256);

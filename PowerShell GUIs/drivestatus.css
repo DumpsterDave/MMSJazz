@@ -51,7 +51,6 @@ a {
 }
 
 .FreeText {
-    display: block;
     position: relative;
     width: 256px;
     line-height: 16px;
