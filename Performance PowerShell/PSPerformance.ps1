@@ -1,4 +1,4 @@
-﻿#  ~/Item1.txt
+#  ~/Item1.txt
 #  ~/Item3.txt
 #
 #
@@ -14,6 +14,8 @@ Param(
 )
 $BaseDir = (Split-Path -Parent $PSCommandPath)
 $OutFileName = [string]::Format("$BaseDir\PSPerformance_{0}_{1}.{2}.txt", (Get-Date -Format "yyyyddMMHHmmss"), $host.Version.Major, $host.Version.Minor)
+$PauseBetweenTests = $false
+$ClearBetweenTests = $false
 if ($OutToFile) {
     Out-File -FilePath $OutFileName -Encoding utf8 -Force -InputObject ([string]::Format("Running under PSVersion: {0}.{1}", $host.Version.Major, $host.Version.Minor))
 }
@@ -36,7 +38,9 @@ Function Get-Winner {
         [ValidateNotNullOrEmpty()]
         [string]$BValue
     )
-    Clear-Host
+    if ($ClearBetweenTests) {
+        Clear-Host
+    }
 
     $blen = $AName.Length + $BName.Length + 12
     $Border = ""
@@ -104,7 +108,9 @@ Function Get-Winner {
     Write-Host ([string]::Format("{0}:  {1}{2:0}ms", $AName, $APad, $AValue)) -ForegroundColor $AColor
     Write-Host ([string]::Format("{0}:  {1}{2:0}ms", $BName, $BPad, $BValue)) -ForegroundColor $BColor
     Write-Host ([string]::Format("WINNER: {0} {1:0.00}x Faster`r`n", $Winner, $Faster)) -ForegroundColor Yellow
-    Pause
+    if ($PauseBetweenTests -eq $true) {
+        Pause
+    }
 }
 #endregion
 
@@ -364,4 +370,47 @@ $c = Measure-Command {
     }
 }
 Get-Winner 'Function' $f.Milliseconds 'Commands' $c.Milliseconds
+#endregion
+
+#region Where-Object vs. For Loop
+#Loop Filter with a Second Loop to copy to the new array
+$f = Measure-Command {
+    $Filtered = [System.Collections.ArrayList]::new()
+    $all = Get-ChildItem -Path C:\Windows\System32
+    for ($i = 0; $i -lt $all.Count; $i++)
+    {
+        if($all[$i].Extension -eq '.exe') {
+            [void]$Filtered.Add($i)
+        }
+    }
+    $objs = [System.Object[]]::new($Filtered.Count)
+    
+    for($i = 0; $i -lt $Filtered.Count; $i++) {
+        $objs[$i] = $all[$Filtered[$i]]
+    }
+    $objs.Count
+}
+#Loop Filter utilizing the .ToArray method instead of a loop copy
+$f2 = Measure-Command {
+    $Filtered = [System.Collections.ArrayList]::new()
+    $all = Get-ChildItem -Path C:\Windows\System32
+    for ($i = 0; $i -lt $all.Count; $i++)
+    {
+        if($all[$i].Extension -eq '.exe') {
+            [void]$Filtered.Add($all[$i])
+        }
+    }
+    $2objs = $Filtered.ToArray()
+    $2objs.Count
+}
+#Write-Host $objs.Count -ForegroundColor Magenta
+$wo = Measure-Command {
+    $wobjs = Get-ChildItem -Path C:\Windows\System32 | Where-Object {$_.Extension -eq '.exe'}
+    $wobjs.Count
+}
+$objs.GetType()
+$2objs.GetType()
+$wobjs.GetType()
+Get-Winner 'Loop Filter' $f.TotalMilliseconds 'Where-Object' $wo.TotalMilliseconds
+Get-Winner 'Loop Filter w/ Loop Copy' $f.TotalMilliseconds 'Loop Filter w/ .ToArray() Method' $f2.TotalMilliseconds
 #endregion
