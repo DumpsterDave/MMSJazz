@@ -1,0 +1,18 @@
+<html>
+    <head>
+        <title>PowerShell Driven Drive Status</title>
+        <script type="application/javascript" src="js.js"></script>
+        <link rel="stylesheet" type="text/css" href="drivestatus.css">
+    </head>
+    <body>
+        <button onClick="UpdateDriveStatus();">Update</button>&nbsp;
+        <button onclick="Stop();">Stop</button>
+        <div id="bodypanel">
+            <table border="0" cellpadding="0" cellspacing="10">
+                <tr><td colspan="6">Disk #</td><td>##DISKTYPE##</td></tr>
+                <tr><td>Partition #</td><td>Volume #</td><td>Drive Letter</td><td>File System</td><td>Total Size</td><td>Free Space</td><td>% Free Space</td></tr>
+            </table>
+        </div>
+        <div id="DetailPanel"></div>
+    </body>
+</html>
