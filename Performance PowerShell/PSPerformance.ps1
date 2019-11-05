@@ -1,4 +1,4 @@
-﻿#  ~/Item1.txt
+#  ~/Item1.txt
 #  ~/Item3.txt
 #
 #
