@@ -314,7 +314,7 @@ $wo = Measure-Command {
     }
 }
 
-Get-Winner 'Write-Host' $wh.Milliseconds 'Write-Output' $wo.Milliseconds
+Get-Winner 'Write-Host' $wh.TotalMilliseconds 'Write-Output' $wo.TotalMilliseconds
 #endregion
 
 #region Write-Output vs [Console]::WriteLine()
@@ -330,7 +330,7 @@ $cwl = Measure-Command {
         [System.Console]::WriteLine("The quick brown fox jumps over the lazy dog")
     }
 }
-Get-Winner '[Console]::WriteLine' $cwl.Milliseconds 'Write-Output' $wo.Milliseconds
+Get-Winner '[Console]::WriteLine' $cwl.TotalMilliseconds 'Write-Output' $wo.TotalMilliseconds
 #endregion
 
 
@@ -347,7 +347,7 @@ $cwl = Measure-Command {
         [System.Console]::WriteLine("The quick brown fox jumps over the lazy dog")
     }
 }
-Get-Winner '[Console]::WriteLine' $cwl.Milliseconds 'Write-Host' $wh.Milliseconds
+Get-Winner '[Console]::WriteLine' $cwl.TotalMilliseconds 'Write-Host' $wh.TotalMilliseconds
 #endregion
 
 #region Function vs Code
@@ -369,7 +369,7 @@ $c = Measure-Command {
         $y = ($r * $r)
     }
 }
-Get-Winner 'Function' $f.Milliseconds 'Commands' $c.Milliseconds
+Get-Winner 'Function' $f.TotalMilliseconds 'Commands' $c.TotalMilliseconds
 #endregion
 
 #region Where-Object vs. For Loop
@@ -414,3 +414,13 @@ $wobjs.GetType()
 Get-Winner 'Loop Filter' $f.TotalMilliseconds 'Where-Object' $wo.TotalMilliseconds
 Get-Winner 'Loop Filter w/ Loop Copy' $f.TotalMilliseconds 'Loop Filter w/ .ToArray() Method' $f2.TotalMilliseconds
 #endregion
+
+#region Get-ChildItem
+$p = Measure-Command {
+    Get-ChildItem c:\windows\*.ini -Recurse
+}
+
+$f = Measure-Command {
+    Get-ChildItem c:\windows -Recurse –Filter *.ini
+}
+Get-Winner 'Path' $p.TotalMilliseconds 'Filter' $f.TotalMilliseconds
