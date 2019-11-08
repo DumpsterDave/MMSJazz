@@ -1,11 +1,3 @@
-#  ~/Item1.txt
-#  ~/Item3.txt
-#
-#
-#
-#
-
-
 #region Parameters and Global Variables
 [CmdletBinding()]
 Param(
@@ -14,8 +6,15 @@ Param(
 )
 $BaseDir = (Split-Path -Parent $PSCommandPath)
 $OutFileName = [string]::Format("$BaseDir\PSPerformance_{0}_{1}.{2}.txt", (Get-Date -Format "yyyyddMMHHmmss"), $host.Version.Major, $host.Version.Minor)
+#
+#Switches
+#
 $PauseBetweenTests = $false
 $ClearBetweenTests = $false
+$OutToFile = $false
+#
+#
+#
 if ($OutToFile) {
     Out-File -FilePath $OutFileName -Encoding utf8 -Force -InputObject ([string]::Format("Running under PSVersion: {0}.{1}", $host.Version.Major, $host.Version.Minor))
 }
@@ -201,6 +200,46 @@ $l = Measure-Command {
 Get-Winner 'Array' $a.TotalMilliseconds 'List' $l.TotalMilliseconds
 #endregion
 
+#region ArrayList vs List
+$Iterations = 10000
+#ArrayList
+$al = Measure-Command {
+    $ArrayList = [System.Collections.ArrayList]::new()
+    for ($i = 0; $i -lt $Iterations; $i++) {
+        [void]$ArrayList.Add($i)
+    }
+}
+
+#List
+$l = Measure-Command {
+    $List = [System.Collections.Generic.List[Object]]::new()
+    for ($i = 0; $i -lt $Iterations; $i++) {
+        [void]$List.Add($i)
+    }
+}
+Get-Winner 'ArrayList' $al.TotalMilliseconds 'List' $l.TotalMilliseconds
+#endregion
+
+#region ObjectList vs Typecast List
+#List
+$ol = Measure-Command {
+    $ObjectList = [System.Collections.Generic.List[Object]]::new()
+    for ($i = 0; $i -lt $Iterations; $i++) {
+        [void]$ObjectList.Add($i)
+    }
+}
+
+#TypeList
+$tl = Measure-Command {
+    $TypeList = [System.Collections.Generic.List[int]]::new()
+    for ($i = 0; $i -lt $Iterations; $i++) {
+        [void]$TypeList.Add($i)
+    }
+}
+
+Get-Winner 'TypeList' $tl.TotalMilliseconds 'Object List' $ol.TotalMilliseconds
+#endregion
+
 #region Match vs .NET RegEx
 $m = Measure-Command { 
     $Haystack = "The Quick Brown Fox Jumped Over the Lazy Brown Dog 5 Times"
@@ -296,6 +335,26 @@ $st = Measure-Command {
 }
 
 Get-Winner 'Get-Content' $gc.TotalMilliseconds '.NET Streams' $st.TotalMilliseconds
+#endregion
+
+#region [Void] vs. Out-Null
+$vl = [System.Collections.Generic.List[Object]]::new()
+$onl = [System.Collections.Generic.List[Object]]::new()
+$Iterations = 10000
+
+$v = Measure-Command {
+    for ($i = 0; $i -lt $Iterations; $i++) {
+        [void]$vl.Add((Get-Random))
+    }
+}
+
+$on = Measure-Command {
+    for ($i = 0; $i -lt $Iterations; $i++) {
+        $onl.Add((Get-Random)) | Out-Null
+    }
+}
+
+Get-Winner '[void]' $v.TotalMilliseconds 'Out-Null' $on.TotalMilliseconds
 #endregion
 
 #region Write-Host vs Write-Output
