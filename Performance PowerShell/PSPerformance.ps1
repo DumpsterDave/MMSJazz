@@ -14,8 +14,6 @@ Param(
 )
 $BaseDir = (Split-Path -Parent $PSCommandPath)
 $OutFileName = [string]::Format("$BaseDir\PSPerformance_{0}_{1}.{2}.txt", (Get-Date -Format "yyyyddMMHHmmss"), $host.Version.Major, $host.Version.Minor)
-$PauseBetweenTests = $false
-$ClearBetweenTests = $false
 if ($OutToFile) {
     Out-File -FilePath $OutFileName -Encoding utf8 -Force -InputObject ([string]::Format("Running under PSVersion: {0}.{1}", $host.Version.Major, $host.Version.Minor))
 }
@@ -38,9 +36,7 @@ Function Get-Winner {
         [ValidateNotNullOrEmpty()]
         [string]$BValue
     )
-    if ($ClearBetweenTests) {
-        Clear-Host
-    }
+    Clear-Host
 
     $blen = $AName.Length + $BName.Length + 12
     $Border = ""
@@ -108,9 +104,7 @@ Function Get-Winner {
     Write-Host ([string]::Format("{0}:  {1}{2:0}ms", $AName, $APad, $AValue)) -ForegroundColor $AColor
     Write-Host ([string]::Format("{0}:  {1}{2:0}ms", $BName, $BPad, $BValue)) -ForegroundColor $BColor
     Write-Host ([string]::Format("WINNER: {0} {1:0.00}x Faster`r`n", $Winner, $Faster)) -ForegroundColor Yellow
-    if ($PauseBetweenTests -eq $true) {
-        Pause
-    }
+    Pause
 }
 #endregion
 
@@ -314,7 +308,7 @@ $wo = Measure-Command {
     }
 }
 
-Get-Winner 'Write-Host' $wh.Milliseconds 'Write-Output' $wo.Milliseconds
+Get-Winner 'Write-Host' $wh.TotalMilliseconds 'Write-Output' $wo.TotalMilliseconds
 #endregion
 
 #region Write-Output vs [Console]::WriteLine()
@@ -330,7 +324,7 @@ $cwl = Measure-Command {
         [System.Console]::WriteLine("The quick brown fox jumps over the lazy dog")
     }
 }
-Get-Winner '[Console]::WriteLine' $cwl.Milliseconds 'Write-Output' $wo.Milliseconds
+Get-Winner '[Console]::WriteLine' $cwl.TotalMilliseconds 'Write-Output' $wo.TotalMilliseconds
 #endregion
 
 
@@ -347,7 +341,7 @@ $cwl = Measure-Command {
         [System.Console]::WriteLine("The quick brown fox jumps over the lazy dog")
     }
 }
-Get-Winner '[Console]::WriteLine' $cwl.Milliseconds 'Write-Host' $wh.Milliseconds
+Get-Winner '[Console]::WriteLine' $cwl.TotalMilliseconds 'Write-Host' $wh.TotalMilliseconds
 #endregion
 
 #region Function vs Code
@@ -369,48 +363,15 @@ $c = Measure-Command {
         $y = ($r * $r)
     }
 }
-Get-Winner 'Function' $f.Milliseconds 'Commands' $c.Milliseconds
+Get-Winner 'Function' $f.TotalMilliseconds 'Commands' $c.TotalMilliseconds
 #endregion
 
-#region Where-Object vs. For Loop
-#Loop Filter with a Second Loop to copy to the new array
+$region Get-ChildItem
+$p = Measure-Command {
+    Get-ChildItem c:\windows\*.ini -Recurse
+}
+
 $f = Measure-Command {
-    $Filtered = [System.Collections.ArrayList]::new()
-    $all = Get-ChildItem -Path C:\Windows\System32
-    for ($i = 0; $i -lt $all.Count; $i++)
-    {
-        if($all[$i].Extension -eq '.exe') {
-            [void]$Filtered.Add($i)
-        }
-    }
-    $objs = [System.Object[]]::new($Filtered.Count)
-    
-    for($i = 0; $i -lt $Filtered.Count; $i++) {
-        $objs[$i] = $all[$Filtered[$i]]
-    }
-    $objs.Count
+    Get-ChildItem c:\windows -Recurse –Filter *.ini
 }
-#Loop Filter utilizing the .ToArray method instead of a loop copy
-$f2 = Measure-Command {
-    $Filtered = [System.Collections.ArrayList]::new()
-    $all = Get-ChildItem -Path C:\Windows\System32
-    for ($i = 0; $i -lt $all.Count; $i++)
-    {
-        if($all[$i].Extension -eq '.exe') {
-            [void]$Filtered.Add($all[$i])
-        }
-    }
-    $2objs = $Filtered.ToArray()
-    $2objs.Count
-}
-#Write-Host $objs.Count -ForegroundColor Magenta
-$wo = Measure-Command {
-    $wobjs = Get-ChildItem -Path C:\Windows\System32 | Where-Object {$_.Extension -eq '.exe'}
-    $wobjs.Count
-}
-$objs.GetType()
-$2objs.GetType()
-$wobjs.GetType()
-Get-Winner 'Loop Filter' $f.TotalMilliseconds 'Where-Object' $wo.TotalMilliseconds
-Get-Winner 'Loop Filter w/ Loop Copy' $f.TotalMilliseconds 'Loop Filter w/ .ToArray() Method' $f2.TotalMilliseconds
-#endregion
+Get-Winner 'Path' $p.TotalMilliseconds 'Filter' $f.TotalMilliseconds
