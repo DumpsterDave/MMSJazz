@@ -373,7 +373,7 @@ $wo = Measure-Command {
     }
 }
 
-Get-Winner 'Write-Host' $wh.Milliseconds 'Write-Output' $wo.Milliseconds
+Get-Winner 'Write-Host' $wh.TotalMilliseconds 'Write-Output' $wo.TotalMilliseconds
 #endregion
 
 #region Write-Output vs [Console]::WriteLine()
@@ -389,7 +389,7 @@ $cwl = Measure-Command {
         [System.Console]::WriteLine("The quick brown fox jumps over the lazy dog")
     }
 }
-Get-Winner '[Console]::WriteLine' $cwl.Milliseconds 'Write-Output' $wo.Milliseconds
+Get-Winner '[Console]::WriteLine' $cwl.TotalMilliseconds 'Write-Output' $wo.TotalMilliseconds
 #endregion
 
 
@@ -406,7 +406,7 @@ $cwl = Measure-Command {
         [System.Console]::WriteLine("The quick brown fox jumps over the lazy dog")
     }
 }
-Get-Winner '[Console]::WriteLine' $cwl.Milliseconds 'Write-Host' $wh.Milliseconds
+Get-Winner '[Console]::WriteLine' $cwl.TotalMilliseconds 'Write-Host' $wh.TotalMilliseconds
 #endregion
 
 #region Function vs Code
@@ -428,7 +428,7 @@ $c = Measure-Command {
         $y = ($r * $r)
     }
 }
-Get-Winner 'Function' $f.Milliseconds 'Commands' $c.Milliseconds
+Get-Winner 'Function' $f.TotalMilliseconds 'Commands' $c.TotalMilliseconds
 #endregion
 
 #region Where-Object vs. For Loop
@@ -449,6 +449,7 @@ $f = Measure-Command {
     }
     $objs.Count
 }
+
 #Loop Filter utilizing the .ToArray method instead of a loop copy
 $f2 = Measure-Command {
     $Filtered = [System.Collections.ArrayList]::new()
@@ -472,4 +473,46 @@ $2objs.GetType()
 $wobjs.GetType()
 Get-Winner 'Loop Filter' $f.TotalMilliseconds 'Where-Object' $wo.TotalMilliseconds
 Get-Winner 'Loop Filter w/ Loop Copy' $f.TotalMilliseconds 'Loop Filter w/ .ToArray() Method' $f2.TotalMilliseconds
+#endregion
+
+#region Get-ChildItem
+#Path
+$p = Measure-Command {
+    Get-ChildItem c:\windows\inf\*.ini
+}
+
+#Filter
+$f = Measure-Command {
+    Get-ChildItem c:\windows\inf –Filter *.ini
+}
+Get-Winner 'Path' $p.TotalMilliseconds 'Filter' $f.TotalMilliseconds
+#endregion
+
+#region Classes
+$co = Measure-Command {
+    $x = 0
+    ForEach ( $i in 1..5000000 )
+    {
+        $x = $x + 1
+    }
+    $x
+}
+
+$cl = Measure-Command {
+    class MyMath
+    {
+        static [int] CountRealHigh()
+        {
+        $x = 0
+        ForEach ( $i in 1..5000000 )
+        {
+            $x = $x + 1
+        }
+            return $x
+        }
+    }
+    [MyMath]::CountRealHigh() 
+} 
+
+Get-Winner 'Code' $co.TotalMilliseconds 'Class' $cl.TotalMilliseconds
 #endregion
